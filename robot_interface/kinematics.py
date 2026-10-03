@@ -1,10 +1,20 @@
 import numpy as np
 import pinocchio as pin
- 
-from .robot import RIGHT_ARM_JOINT_NAMES
- 
+
+# Right arm of the 29-DoF G1, in the order joint_pos is reported (URDF joint names).
+RIGHT_ARM_JOINT_NAMES = (
+    "right_shoulder_pitch_joint",
+    "right_shoulder_roll_joint",
+    "right_shoulder_yaw_joint",
+    "right_elbow_joint",
+    "right_wrist_roll_joint",
+    "right_wrist_pitch_joint",
+    "right_wrist_yaw_joint",
+)
+
 EE_OFFSET = (0.05, 0.0, 0.0)  # from right_wrist_yaw_joint, as LeRobot's "R_ee"
 LIMIT_MARGIN = 0.05  # rad kept clear of each joint limit
+
  
  
 class RightArmIK:

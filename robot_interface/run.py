@@ -1,3 +1,4 @@
+import argparse
 import logging
 import threading
 import time
@@ -6,6 +7,7 @@ from incar_networking.robot_interface import IncarRobotInterface
  
 from .robot import G1Robot
 from .robot_simulation import G1RobotSim
+from .robot_real import G1RobotReal
  
 log = logging.getLogger(__name__)
  
@@ -59,9 +61,18 @@ class IncarG1Bridge:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="INCAR teleoperation of the G1's right arm")
+    parser.add_argument(
+        "--robot",
+        choices=["sim", "real"],
+        default="sim",
+        help="sim: LeRobot's MuJoCo G1 (default); real: the G1 on the gantry, via g1_server.py on the robot",
+    )
+    args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
  
-    robot = G1RobotSim()  # switch here between simulation and real robot
+    robot = G1RobotReal() if args.robot == "real" else G1RobotSim()
+
     robot.connect()
     bridge = IncarG1Bridge(robot)
  
