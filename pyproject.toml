@@ -1,0 +1,26 @@
+[project]
+name = "unitree_g1_extension"
+version = "0.0.1"
+description = "INCAR extension for the Unitree G1: cameras and right-arm teleoperation"
+authors = [
+    { name = "Philipp Seidel", email = "psei@kth.se" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+urls = {repository = "https://github.com/PhilippSeidel/unitree_g1_extension"}
+dependencies = [
+    "incar_networking",
+    "numpy",
+    "opencv-python",
+    "pyzmq",
+    "msgpack",
+    "pin",
+    "lerobot",
+    "huggingface_hub"
+]
+
+[tool.setuptools]
+packages = ["unitree_g1_extension", "unitree_g1_extension.robot_interface"]
+
+[project.entry-points."incar_extensions.cameras"]
+unitree_g1 = "unitree_g1_extension"
