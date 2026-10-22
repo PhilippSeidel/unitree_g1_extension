@@ -12,9 +12,10 @@ RAMP_TIME = 2.0  # s, stiffness ramp at connect and close
 SETTLE_TIME = 1.5  # s of damping only after the ramp-out, so the arms come to rest before going passive
 
 CHECKLIST = """
-Check:
+About to take control of the real G1. Check:
   - the robot hangs on the gantry, feet off the ground, arms free to move
-  - run_g1_server.py is running on the robot
+  - g1_server.py is running on the robot (the robot is limp)
+  - the power switch or e-stop is within reach
 Type 'yes' to stiffen all joints over {:.0f} s and start teleoperation: """
 
 
@@ -24,7 +25,7 @@ class G1RobotReal(G1Robot):
         max_lin_vel: float = 0.1,
         max_ang_vel: float = 0.5,
         robot_ip: str = "192.168.123.164",
-        **kwargs,  # control_dt, urdf_path
+        **kwargs,  # control_dt, urdf_path, arm
     ):
         config = UnitreeG1Config(
             is_simulation=False,
@@ -48,14 +49,14 @@ class G1RobotReal(G1Robot):
         self._ramp_stiffness(1.0, 0.0, then_hold=SETTLE_TIME)
 
     def _ramp_stiffness(self, start: float, end: float, then_hold: float = 0.0) -> None:
-        """Hold every joint where it is now while kp goes from start to end times LeRobot's
-        gains, then keep sending the end value for `then_hold` seconds. kd stays at LeRobot's
-        gains. The right arm's gravity feedforward is scaled along with kp: the limp arm may
-        rest against the body, and switching the feedforward on at once would lift it off."""
         hold = {k: v for k, v in self._g1.get_observation().items() if k.endswith(".q")}
-        q = np.array(list(hold.values()))  # G1_29_JointIndex order: arms are 15-28, right arm 22-28
+        q = np.array(list(hold.values()))  # G1_29_JointIndex order: left arm 15-21, right arm 22-28
+        arms_tau = self._g1.arm_ik.solve_tau(q[15:29])  # gravity torques, left arm then right arm
         tau_gravity = np.zeros(len(q))
-        tau_gravity[22:29] = self._g1.arm_ik.solve_tau(q[15:29])[7:]
+        if self.side == "right":
+            tau_gravity[22:29] = arms_tau[7:]
+        else:
+            tau_gravity[15:22] = arms_tau[:7]
         ramp_steps = round(RAMP_TIME / self.control_dt)
         for i in range(ramp_steps + round(then_hold / self.control_dt) + 1):
             scale = start + (end - start) * min(i / ramp_steps, 1.0)

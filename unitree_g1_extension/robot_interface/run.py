@@ -4,18 +4,17 @@ import threading
 import time
 from typing import Callable, Optional, Sequence
 from incar_networking.robot_interface import IncarRobotInterface
- 
+
 from .robot import G1Robot
-from .robot_simulation import G1RobotSim
 from .robot_real import G1RobotReal
+from .robot_simulation import G1RobotSim
  
 log = logging.getLogger(__name__)
- 
-STATE_MODULE = "right_arm"
+
  
  
 class IncarG1Bridge:
- 
+
     def __init__(
         self,
         robot: G1Robot,
@@ -31,7 +30,7 @@ class IncarG1Bridge:
  
     def on_right_ee_velocity(self, velocity: Sequence[float]) -> None:
         with self._lock:
-            if not self.robot.command_right_ee_velocity(velocity):
+            if not self.robot.command_ee_velocity(velocity):
                 return
             self._t_last_cmd = self._clock()
             if not self._streaming:
@@ -39,12 +38,15 @@ class IncarG1Bridge:
                 log.info("command stream started")
  
     def on_loop(self, interface) -> None:
+        """Loop callback, called by IncarRobotInterface every dt."""
         self._check_watchdog()
-        state = self.robot.right_arm_state()
-        interface.set_robot_state(
-            STATE_MODULE,
+        state = self.robot.arm_state()
+        interface.set_robot_state(  
+            f"{self.robot.side}_arm",
             ee_pose=state.ee_pose.tolist(),
             joint_pos=state.joint_pos.tolist(),
+            joint_vel=state.joint_vel.tolist(),
+            joint_effort=state.joint_effort.tolist(),
         )
         interface.publish_state()
  
@@ -55,27 +57,32 @@ class IncarG1Bridge:
             if self._clock() - self._t_last_cmd <= self.command_timeout:
                 return
             self._streaming = False
-            self.robot.stop_right_arm()
+            self.robot.stop_arm()
         log.info("command stream stopped (> %.2f s without a message), arm stopped", self.command_timeout)
 
 
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="INCAR teleoperation of the G1's right arm")
+    parser = argparse.ArgumentParser(description="INCAR teleoperation of one arm of the G1")
     parser.add_argument(
         "--robot",
         choices=["sim", "real"],
         default="sim",
-        help="sim: LeRobot's MuJoCo G1 (default); real: the G1 on the gantry, via run_g1_server.py on the robot",
+        help="sim: LeRobot's MuJoCo G1 (default); real: the G1 on the gantry, via g1_server.py on the robot",
+    )
+    parser.add_argument(
+        "--arm",
+        choices=["right", "left"],
+        default="right",
+        help="arm to teleoperate (default right); left follows the right controller, mirrored",
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
- 
-    robot = G1RobotReal() if args.robot == "real" else G1RobotSim()
 
+    robot_cls = G1RobotReal if args.robot == "real" else G1RobotSim
+    robot = robot_cls(arm=args.arm)
     robot.connect()
     bridge = IncarG1Bridge(robot)
- 
+
     interface = IncarRobotInterface(
         0.01,
         command_hooks = {
@@ -87,8 +94,8 @@ if __name__ == "__main__":
     )
     try:
         interface.start("127.0.0.1")
-        threading.Event().wait()  # in case start() returns; keep running until Ctrl-C
+        threading.Event().wait()  
     except KeyboardInterrupt:
         pass
     finally:
-        robot.close()  # LeRobot's sim threads are not daemons; without this Ctrl-C hangs
+        robot.close()  
