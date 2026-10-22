@@ -75,11 +75,18 @@ if __name__ == "__main__":
         default="right",
         help="arm to teleoperate (default right); left follows the right controller, mirrored",
     )
+    parser.add_argument(
+        "--no-viewer",
+        action="store_true",
+        help="sim only: don't open the MuJoCo window, publish the sim cameras over ZMQ instead (for g1_sim cameras)",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
 
-    robot_cls = G1RobotReal if args.robot == "real" else G1RobotSim
-    robot = robot_cls(arm=args.arm)
+    if args.robot == "real":
+        robot = G1RobotReal(arm=args.arm)
+    else:
+        robot = G1RobotSim(arm=args.arm, viewer=not args.no_viewer)
     robot.connect()
     bridge = IncarG1Bridge(robot)
 

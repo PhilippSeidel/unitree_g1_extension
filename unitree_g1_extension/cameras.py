@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 import cv2
 import zmq
-import msgpack
 import time
 
 import numpy as np
@@ -19,7 +18,7 @@ log = logging.getLogger(__name__)
 class G1ZmqConfig(CameraConfig):
     host: str = "192.168.123.164"
     port: int = 5555
-    camera_name: str = "ego_view"
+    camera_name: str = "head_camera"
     def build_camera(self): return G1ZmqCamera(self)
 
 class G1ZmqCamera(Camera):
@@ -36,20 +35,17 @@ class G1ZmqCamera(Camera):
            names, t_warn = None, time.monotonic()
            while True:
                try:
-                   msg = msgpack.unpackb(self.sock.recv())
-                   names = list(msg["images"])
-                   img = msg["images"][self.name]
-                   if isinstance(img, str):   # base64 JPEG (RealSense/USB drivers)
-                       frame = cv2.imdecode(np.frombuffer(base64.b64decode(img), np.uint8), cv2.IMREAD_COLOR)
-                   else:                      # raw JPEG bytes (OAK on-device MJPEG)
-                       frame = cv2.imdecode(np.frombuffer(img, np.uint8), cv2.IMREAD_COLOR)
+                   images = json.loads(self.sock.recv())["images"]
+                   names = list(images)
+                   img = images.get(self.name)
+                   if img is not None:
+                       jpeg = np.frombuffer(base64.b64decode(img), np.uint8)
+                       frame = cv2.imdecode(jpeg, cv2.IMREAD_COLOR)  # same channel order as encoded: RGB
                        if frame is not None:
-                           frame = np.ascontiguousarray(frame[..., ::-1])
-                   if frame is not None:
-                       return frame
+                           return frame
                except zmq.Again:
                    pass
-               except (ValueError, KeyError, TypeError, msgpack.UnpackException):
+               except (ValueError, KeyError, TypeError):
                    pass
                if time.monotonic() - t_warn > 5:
                    log.warning("no '%s' frame from %s yet; cameras in stream: %s",

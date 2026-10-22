@@ -13,7 +13,6 @@ dependencies = [
     "numpy",
     "opencv-python",
     "pyzmq",
-    "msgpack",
     "pin",
     "lerobot",
     "huggingface_hub"
