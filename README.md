@@ -34,13 +34,13 @@ Add a `g1_zmq` or `g1_sim` camera to the `cameras` in your `workspace_config.jso
 
 ```json
 "cameras": {
-    "ego_view": {
+    "ego_view_real": {
         "type": "g1_zmq",
         "camera_name": "head_camera"
     },
-    "head_camera": {
+    "ego_view_sim": {
         "type": "g1_sim",
-        "camera_name": "g1_head_camera_sim"
+        "camera_name": "head_camera"
     }
 }
 ```
