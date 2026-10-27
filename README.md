@@ -8,13 +8,25 @@ INCAR extension for the Unitree G1 humanoid. It provides:
 
 ## Install
 
-1. Source your INCAR venv. Install [LeRobot](https://huggingface.co/docs/lerobot/installation) first, as described there.
-2. Install this extension:
-   ```bash
-   git clone https://github.com/PhilippSeidel/unitree_g1_extension.git
-   cd unitree_g1_extension
-   pip install .
-   ```
+Requires an INCAR venv made by the INCAR installer, Ubuntu 22.04 or Ubuntu 24.04. (Unofficially also Debian 13)
+
+```bash
+git clone https://github.com/PhilippSeidel/unitree_g1_extension.git
+cd unitree_g1_extension
+bash install.sh
+```
+
+
+It installs into the INCAR venv:
+
+- [LeRobot](https://github.com/huggingface/lerobot) (a pinned commit of `main`) and this extension
+- [unitree_sdk2_python](https://github.com/unitreerobotics/unitree_sdk2_python), as an editable checkout in `<venv>/src/unitree-sdk2py`, with the CycloneDDS 0.10 library it needs, built into `<venv>/cyclonedds`
+- Pinocchio built from source with CasADi support, needed by LeRobot's G1 arm IK. This takes a long time and changes numpy to 2.3.x.
+- MuJoCo and the other packages LeRobot's G1 code and its simulation import
+
+Keep `<venv>/cyclonedds` and `<venv>/src/unitree-sdk2py`: the installed packages load files from there.
+
+LeRobot's dependency pins conflict with INCAR's: it pins an older torch and the PyPI `draccus`, which replaces INCAR's `draccus` fork. The script therefore installs LeRobot and this extension without their dependencies. When reinstalling either by hand, use `pip install --no-deps`. Otherwise pip downgrades torch and breaks INCAR. `pip check` keeps reporting LeRobot's unmet pins; that is expected.
 
 ## Cameras
 
@@ -54,6 +66,7 @@ python ~/lerobot/src/lerobot/robots/unitree_g1/run_g1_server.py --camera  # arm 
    python -m unitree_g1_extension.robot_interface.run --robot sim --no-viewer   # MuJoCo simulation, streams the cameras over ZMQ
    python -m unitree_g1_extension.robot_interface.run --robot real              # real robot
    ```
+   With `--no-viewer` on a machine without a display, set `MUJOCO_GL=egl`.
 
 | Option | Values | Default | Description |
 |---|---|---|---|
