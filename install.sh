@@ -218,7 +218,7 @@ replaced by the PyPI draccus, probably by installing LeRobot with its dependenci
 package_versions() {
   python -c 'import importlib.metadata as m, sys
 def version(n):
-  try: return f"{n}=={m.version(n)}
+  try: return f"{n}=={m.version(n)}"
   except m.PackageNotFoundError: return ""
 print(" ".join(filter(None, map(version, sys.argv[1:]))))' "$@"
 }
