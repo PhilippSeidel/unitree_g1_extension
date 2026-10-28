@@ -89,6 +89,58 @@ run_logged() {
   fi
 }
 
+# run_with_progress LABEL CMD... -> run_logged, with a progress bar on a
+# terminal from the "[ 42%]" (Make) or "[12/345]" (Ninja) lines cmake prints
+run_with_progress() {
+  local label=$1; shift
+  if [[ ! -t 2 ]]; then
+    run_logged "$@"
+    return
+  fi
+  if ! "$@" 2>&1 | tee -a "$LOG" | progress_bar "$label"; then
+    tail -n 30 "$LOG" >&2
+    die "'$*' failed, full log: $LOG"
+  fi
+}
+
+# progress_bar LABEL < build output -> redraws one status line on stderr,
+# at least every second so the elapsed time moves during long compiles
+progress_bar() {
+  local label=$1 line= partial= pct=0 p phase=configuring start=$SECONDS
+  local secs bar shown= status
+  while :; do
+    if IFS= read -r -t 1 line; then
+      line=$partial$line partial=
+      if [[ $line =~ ^[[:space:]]*\[\ *([0-9]+)%\] ]]; then
+        p=${BASH_REMATCH[1]}
+      elif [[ $line =~ ^[[:space:]]*\[([0-9]+)/([0-9]+)\] ]]; then
+        p=$(( 100 * BASH_REMATCH[1] / BASH_REMATCH[2] ))
+      else
+        p=
+      fi
+      # cmake's install step reprints the targets' percentages
+      if [[ $line == *"Install the project"* ]]; then
+        phase=installing
+      elif [[ -n $p && $phase != installing ]]; then
+        phase=compiling
+        (( p <= pct )) || pct=$p
+      fi
+    else
+      status=$?
+      (( status > 128 )) || break   # end of output, not a timeout
+      partial+=$line                # a timed out read keeps the partial line
+    fi
+    secs=$(( SECONDS - start ))
+    printf -v bar '%*s' $(( pct * 30 / 100 )) ''
+    printf -v bar '%-30s' "${bar// /#}"
+    printf -v line '  %-12s [%s] %3d%%  %-11s %d:%02d' "$label" "${bar// /-}" "$pct" "$phase" \
+      $(( secs / 60 )) $(( secs % 60 ))
+    [[ $line == "$shown" ]] || printf '\r\033[K%s' "$line" >&2
+    shown=$line
+  done
+  printf '\n' >&2
+}
+
 parse_args() {
   VENV= JOBS= ASSUME_YES=0
   while (( $# )); do
@@ -293,11 +345,12 @@ build_pinocchio() {
   local casadi_dir pkg
   casadi_dir=$(python -c 'import casadi, os; print(os.path.join(os.path.dirname(casadi.__file__), "cmake"))')
   # USE_LINK_PATH records casadi's library directory in the RPATH, so
-  # pinocchio.casadi finds libcasadi also when casadi is not imported first
+  # pinocchio.casadi finds libcasadi also when casadi is not imported first.
+  # -v makes pip pass on cmake's output, which the progress bar reads.
   for pkg in libpinocchio pin; do
-    run_logged env CMEEL_JOBS="$JOBS" CMEEL_RUN_TESTS=OFF\
+    run_with_progress "$pkg" env CMEEL_JOBS="$JOBS" CMEEL_RUN_TESTS=OFF \
       CMEEL_CMAKE_ARGS="-DBUILD_WITH_CASADI_SUPPORT=ON -Dcasadi_DIR=$casadi_dir -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON" \
-      python -m pip install --no-cache-dir --no-build-isolation --no-deps --force-reinstall \
+      python -m pip install -v --no-cache-dir --no-build-isolation --no-deps --force-reinstall \
       --no-binary "$pkg" "$pkg==$PINOCCHIO_VERSION"
   done
   pinocchio_is_current || die "Pinocchio was built, but pinocchio.casadi does not import, see $LOG"
