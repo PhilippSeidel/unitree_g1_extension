@@ -295,7 +295,7 @@ build_pinocchio() {
   # USE_LINK_PATH records casadi's library directory in the RPATH, so
   # pinocchio.casadi finds libcasadi also when casadi is not imported first
   for pkg in libpinocchio pin; do
-    run_logged env CMEEL_JOBS="$JOBS" \
+    run_logged env CMEEL_JOBS="$JOBS" CMEEL_RUN_TESTS=OFF\
       CMEEL_CMAKE_ARGS="-DBUILD_WITH_CASADI_SUPPORT=ON -Dcasadi_DIR=$casadi_dir -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON" \
       python -m pip install --no-cache-dir --no-build-isolation --no-deps --force-reinstall \
       --no-binary "$pkg" "$pkg==$PINOCCHIO_VERSION"
