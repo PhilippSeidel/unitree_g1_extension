@@ -162,9 +162,13 @@ replaced by the PyPI draccus, probably by installing LeRobot with its dependenci
   NUMPY_VERSION=$(package_versions numpy)
 }
 
-# package_versions NAME... -> "NAME==VERSION ..."
+# package_versions NAME... -> "NAME==VERSION ..." for the installed ones
 package_versions() {
-  python -c 'import importlib.metadata as m, sys; print(" ".join(f"{n}=={m.version(n)}" for n in sys.argv[1:]))' "$@"
+  python -c 'import importlib.metadata as m, sys
+def version(n):
+  try: return f"{n}=={m.version(n)}
+  except m.PackageNotFoundError: return ""
+print(" ".join(filter(None, map(version, sys.argv[1:]))))' "$@"
 }
 
 default_jobs() {
