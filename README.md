@@ -73,6 +73,7 @@ python ~/lerobot/src/lerobot/robots/unitree_g1/run_g1_server.py --camera  # arm 
 | `--robot` | `sim`, `real` | `sim` | Simulation or real robot |
 | `--arm` | `right`, `left` | `right` | Arm to teleoperate |
 | `--no-viewer` | flag | off | Simulation only: don't open the MuJoCo window, publish the sim cameras over ZMQ instead (needed for `g1_sim` cameras) |
+| `--walk` | flag | off | Walk with LeRobot's GR00T locomotion policy, driven by `base.commands.tank`. Real robot: feet on the floor, in a harness |
 
 
 ### Behavior
@@ -82,3 +83,4 @@ python ~/lerobot/src/lerobot/robots/unitree_g1/run_g1_server.py --camera  # arm 
 - If no command arrives for 0.2 s, the arm stops and holds its position.
 - If the arm lags its target by more than 0.2 rad (e.g. because it is blocked), the target is reset to the measured position.
 - The arm state (`ee_pose`, `joint_pos`, `joint_vel`, `joint_effort`) is published to INCAR as `right_arm` or `left_arm` every 10 ms.
+- **Walking** (`--walk`): LeRobot's GR00T controller drives legs and waist at 50 Hz on the INCAR PC; `run_g1_server.py` on the robot is unchanged. `base.commands.tank` `[vx, vy, wz]` (right stick y, right stick x, left stick x) is passed as the remote axes `ly` (negated), `lx`, `rx`, clipped to ±1: stick forward walks forward, right stick right steps right, left stick right turns right. Below a command norm of 0.05 the balance policy stands still. If no tank command arrives for 0.2 s, the command is zeroed. Limit the speed with the `limit_base` step in the workspace config (e.g. 0.2). On exit the robot goes limp. In simulation the robot hangs on an elastic band: press `9` in the MuJoCo window to release it (so `--walk` needs the viewer).

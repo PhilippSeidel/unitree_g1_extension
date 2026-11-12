@@ -61,7 +61,7 @@ OPENCV_SPEC="opencv-python>=4.13,<5"
 # Imported by LeRobot's G1 code and the lerobot/unitree-g1-mujoco simulation.
 # Bounds as in LeRobot's pyproject.toml.
 RUNTIME_PACKAGES=("gymnasium>=1.1.1,<2" "termcolor>=2.4,<4" "pyzmq>=26.2.1,<28" "pygame>=2.5.1,<2.7"
-  "scipy>=1.14,<2" "mujoco>=3.3" "loguru>=0.7" "casadi==$CASADI_VERSION")
+  "scipy>=1.14,<2" "mujoco>=3.3" "loguru>=0.7" "casadi==$CASADI_VERSION" "onnxruntime>=1.16,<2" "onnx>=1.16,<2")
 # Must be the same afterwards
 INCAR_PACKAGES=(incar incar_draccus incar_networking torch torchvision torchcodec)
 INDEX_HOST=packages.incar-robotics.se

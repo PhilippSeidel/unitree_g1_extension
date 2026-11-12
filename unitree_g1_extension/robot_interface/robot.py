@@ -95,6 +95,16 @@ class G1Robot:
             self._twist = twist_g1
         return True
 
+    def command_base_velocity(self, tank: Sequence[float]) -> bool:
+        """INCAR base.commands.tank [vx, vy, wz]; only has an effect with the GR00T controller (walk=True)."""
+        cmd = np.asarray(tank, dtype=float).reshape(-1)
+        if cmd.shape != (3,) or not np.all(np.isfinite(cmd)):
+            return False
+        cmd = np.clip(cmd, -1.0, 1.0)  # the Unitree remote's range, which GR00T was trained on
+        # tank is [right stick y, right stick x, left stick x]; INCAR's stick y is negative when pushed forward, GR00T's ly positive
+        self._g1.send_action({"remote.ly": -float(cmd[0]), "remote.lx": float(cmd[1]), "remote.rx": float(cmd[2])})
+        return True
+
     def stop_arm(self) -> None:
         with self._lock:
             self._twist = np.zeros(6)

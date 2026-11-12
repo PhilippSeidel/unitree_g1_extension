@@ -18,33 +18,49 @@ About to take control of the real G1. Check:
   - the power switch or e-stop is within reach
 Type 'yes' to stiffen all joints over {:.0f} s and start teleoperation: """
 
+WALK_CHECKLIST = """
+About to take control of the real G1 with the GR00T walking policy. Check:
+  - the robot hangs in the gantry or harness with its feet on the floor and room to walk
+  - g1_server.py is running on the robot (the robot is limp)
+  - the power switch or e-stop is within reach; on exit the robot goes limp and drops into the harness
+Type 'yes' to stiffen all joints, move to the standing pose over 3 s and start teleoperation: """
+
 
 class G1RobotReal(G1Robot):
     def __init__(
         self,
         max_lin_vel: float = 0.1,
         max_ang_vel: float = 0.5,
-        robot_ip: str = "192.168.123.164",
+        robot_ip: str = "10.57.3.91",
+        walk: bool = False,  # legs and waist driven by LeRobot's GR00T locomotion policy
         **kwargs,  # control_dt, urdf_path, arm
     ):
         config = UnitreeG1Config(
             is_simulation=False,
             robot_ip=robot_ip,
+            controller="GrootLocomotionController" if walk else None,
             # Feedforward from LeRobot's hand14 URDF, i.e. assuming Dex3 hands; see sim.py.
             gravity_compensation=True,
         )
         super().__init__(config, max_lin_vel, max_ang_vel, **kwargs)
 
     def connect(self) -> None:
-        if input(CHECKLIST.format(RAMP_TIME)).strip().lower() != "yes":
+        checklist = WALK_CHECKLIST if self._config.controller else CHECKLIST.format(RAMP_TIME)
+        if input(checklist).strip().lower() != "yes":
             raise SystemExit("aborted, robot not touched")
         super().connect()
 
+    # With a controller, LeRobot eases into its standing pose itself and its thread keeps publishing,
+    # so a stiffness ramp here would fight it.
     def _after_connect(self) -> None:
+        if self._config.controller:
+            return
         log.info("stiffening all joints over %.0f s", RAMP_TIME)
         self._ramp_stiffness(0.0, 1.0)
 
     def _before_disconnect(self) -> None:
+        if self._config.controller:
+            return
         log.info("releasing all joints over %.0f s", RAMP_TIME)
         self._ramp_stiffness(1.0, 0.0, then_hold=SETTLE_TIME)
 

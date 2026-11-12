@@ -27,7 +27,13 @@ class IncarG1Bridge:
         self._lock = threading.Lock()
         self._t_last_cmd: Optional[float] = None
         self._streaming = False
- 
+        self._t_last_base: Optional[float] = None
+
+    def on_base_tank(self, tank: Sequence[float]) -> None:
+        with self._lock:
+            if self.robot.command_base_velocity(tank):
+                self._t_last_base = self._clock()
+
     def on_right_ee_velocity(self, velocity: Sequence[float]) -> None:
         with self._lock:
             if not self.robot.command_ee_velocity(velocity):
@@ -52,6 +58,10 @@ class IncarG1Bridge:
  
     def _check_watchdog(self) -> None:
         with self._lock:
+            if self._t_last_base is not None and self._clock() - self._t_last_base > self.command_timeout:
+                self._t_last_base = None
+                self.robot.command_base_velocity([0.0, 0.0, 0.0])
+                log.info("base command stream stopped (> %.2f s without a message), standing", self.command_timeout)
             if not self._streaming:
                 return
             if self._clock() - self._t_last_cmd <= self.command_timeout:
@@ -80,21 +90,28 @@ if __name__ == "__main__":
         action="store_true",
         help="sim only: don't open the MuJoCo window, publish the sim cameras over ZMQ instead (for g1_sim cameras)",
     )
+    parser.add_argument(
+        "--walk",
+        action="store_true",
+        help="walk with LeRobot's GR00T locomotion policy, driven by base.commands.tank (real robot: feet on the floor)",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO)
 
     if args.robot == "real":
-        robot = G1RobotReal(arm=args.arm)
+        robot = G1RobotReal(arm=args.arm, walk=args.walk)
     else:
-        robot = G1RobotSim(arm=args.arm, viewer=not args.no_viewer)
+        robot = G1RobotSim(arm=args.arm, viewer=not args.no_viewer, walk=args.walk)
     robot.connect()
     bridge = IncarG1Bridge(robot)
 
+    command_hooks = {"right.commands.arm.ee.velocity": bridge.on_right_ee_velocity}
+    if args.walk:
+        command_hooks["base.commands.tank"] = bridge.on_base_tank
+
     interface = IncarRobotInterface(
         0.01,
-        command_hooks = {
-            "right.commands.arm.ee.velocity": bridge.on_right_ee_velocity
-        },
+        command_hooks = command_hooks,
         loop_callbacks = [
             bridge.on_loop
         ]
