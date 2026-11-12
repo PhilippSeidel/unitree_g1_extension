@@ -31,7 +31,7 @@ class G1RobotReal(G1Robot):
         self,
         max_lin_vel: float = 0.1,
         max_ang_vel: float = 0.5,
-        robot_ip: str = "10.57.3.91",
+        robot_ip: str = "192.168.123.164",
         walk: bool = False,  # legs and waist driven by LeRobot's GR00T locomotion policy
         **kwargs,  # control_dt, urdf_path, arm
     ):
